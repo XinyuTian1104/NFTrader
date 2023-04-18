@@ -5,7 +5,7 @@ import pandas as pd
 
 from utils.config import data_path
 
-dotenv.load_dotenv('/Users/crinstaniev/Courses/STATS402/src/.env')
+dotenv.load_dotenv('.env')
 NUM_PROJECTS = int(os.getenv('NUM_PROJECTS'))
 
 
