@@ -1,5 +1,4 @@
 import importlib.util
-import torch
 
 def import_encoder(name):
     path = '/Users/crinstaniev/Courses/STATS402/model/encoders/' + name + '_encoder.py'
