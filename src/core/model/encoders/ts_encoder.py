@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
@@ -44,7 +43,8 @@ class TimeSeriesEncoder(nn.Module):
 def test_ts_encoder():
     num_features = 20
     model = TimeSeriesEncoder(num_features=num_features)
-    print(model)
+    # print(model)
     input_tensor = torch.randn(32, 500, num_features)
+    print("TS Input shape:", str(input_tensor.shape))
     output = model(input_tensor)
     print(output.shape)

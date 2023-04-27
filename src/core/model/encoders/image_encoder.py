@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -9,7 +7,7 @@ from torchvision import transforms
 
 
 class ImageTransformerEncoder(nn.Module):
-    def __init__(self, feature_dim, num_layers, num_heads, d_ff, dropout):
+    def __init__(self, output_size, num_layers, num_heads, d_ff, dropout):
         super(ImageTransformerEncoder, self).__init__()
 
         # Pre-trained image feature extraction model (ResNet-50)
@@ -19,12 +17,12 @@ class ImageTransformerEncoder(nn.Module):
         # Transformer encoder layers
         self.transformer_layers = nn.ModuleList([
             nn.TransformerEncoderLayer(
-                d_model=feature_dim, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout)
+                d_model=output_size, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout)
             for _ in range(num_layers)
         ])
 
         # Max pool for fixed-length feature vector
-        self.max_pool = nn.AdaptiveMaxPool2d((1, feature_dim))
+        self.max_pool = nn.AdaptiveMaxPool2d((1, output_size))
 
     def forward(self, x):
         # Extract image features
@@ -46,7 +44,7 @@ class ImageTransformerEncoder(nn.Module):
 
 
 class ViTEncoder(nn.Module):
-    def __init__(self, d_model, nhead, num_layers, dim_feedforward, patch_size, feature_dim=2048):
+    def __init__(self, d_model, nhead, num_layers, dim_feedforward, patch_size, output_size=2048):
         super(ViTEncoder, self).__init__()
 
         self.patch_size = patch_size
@@ -60,7 +58,7 @@ class ViTEncoder(nn.Module):
         self.position_encoding = nn.Parameter(
             torch.randn(1, (patch_size * patch_size) + 1, d_model))
 
-        self.max_pool = nn.AdaptiveMaxPool2d((1, feature_dim))
+        self.max_pool = nn.AdaptiveMaxPool2d((1, output_size))
 
     def forward(self, x):
         # Flatten and add position encoding
@@ -95,6 +93,8 @@ def test_vit():
         transforms.ToTensor(),
     ])
     image_tensor = transform(image).unsqueeze(0)
+
+    print("Image Sample Size:" + str(image_tensor.shape))
 
     # Instantiate the model
     model = ViTEncoder(d_model, nhead, num_layers, dim_feedforward, patch_size)

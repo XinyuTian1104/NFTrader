@@ -32,7 +32,7 @@ class BertEncoder(nn.Module):
 def test_bert():
     # Instantiate BertEncoder module
     model = BertEncoder()
-    print(model)
+    # print(model)
 
     # Define random text
     text = "This is a sample text to test the BertEncoder module."
