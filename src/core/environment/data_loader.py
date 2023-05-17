@@ -28,6 +28,8 @@ class DataLoader(object):
         
         self.current_timestep = FEATURE_TS_LEN
         
+        self.reload_flag = True
+        
         # remove .DS_Store
         if '.DS_Store' in self.collection_names:
             self.collection_names.remove('.DS_Store')
@@ -38,9 +40,13 @@ class DataLoader(object):
             
     def bump_timestep(self):
         self.current_timestep += 1
-        if self.current_timestep == self._get_timeseries_length():
+        # print('current timestep:', self.current_timestep)
+        # print('timeseries length:', self._get_timeseries_length())
+        # print('current collection id:', self.current_collection_id)
+        if self.current_timestep >= self._get_timeseries_length() - 1:
             self.current_timestep = FEATURE_TS_LEN
             self.current_collection_id += 1
+            self.reload_flag = True
             return True
         return False
         
@@ -90,17 +96,18 @@ class DataLoader(object):
             payload = payload.to_numpy()
             return payload
         
-        payload = self.time_series_buffer.iloc[self.current_timestep]
-        
-        # only keep floorEth, floorUsd, salesCount, volumeEth, volumeUsd
-        payload = payload[['floorEth', 'floorUsd', 'salesCount', 'volumeEth', 'volumeUsd']]
-        
-        # convert to numpy array
-        payload = payload.to_numpy()
+        payloads = np.zeros((FEATURE_TS_LEN, 5), dtype=np.float32)
+        for i in range(self.current_timestep, self.current_timestep - FEATURE_TS_LEN, -1):
+            payload = self.time_series_buffer.iloc[i]
+            payload = payload[['floorEth', 'floorUsd', 'salesCount', 'volumeEth', 'volumeUsd']]
+            payload = payload.to_numpy().astype(np.float32)
+            payloads[self.current_timestep - i] = payload
+        payloads = payloads.astype(np.float32)
+        payloads = torch.from_numpy(payloads).type(torch.float32).unsqueeze(0)
         
         done = self.bump_timestep()
         
-        return payload, done
+        return payloads, done
         
     
     def _collection_id_to_name(self, collection_id):
@@ -113,15 +120,18 @@ class DataLoader(object):
             self.time_series_buffer = None
             self.feature_buffer = None
             self.current_collection_id = collection_id
+            self.reload_flag = True
+        
+        if self.reload_flag: 
+            collection_name = self._collection_id_to_name(collection_id)
+            collection_path = os.path.join(self.data_path, collection_name)  
+                
+            # load time_series.json with pandas
+            time_series_path = os.path.join(collection_path, 'time_series.json')
+            time_series = pd.read_json(time_series_path)
+            self.time_series_buffer = time_series
             
-        collection_name = self._collection_id_to_name(collection_id)
-        collection_path = os.path.join(self.data_path, collection_name)  
-            
-        # load time_series.json with pandas
-        time_series_path = os.path.join(collection_path, 'time_series.json')
-        time_series = pd.read_json(time_series_path)
-            
-        self.time_series_buffer = time_series
+            self.reload_flag = False
         return
     
     def __len__(self):

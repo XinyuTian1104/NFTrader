@@ -30,7 +30,7 @@ def test_ts_encoder():
     return
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 def test_multimodal_encoder():
     from core.model.encoders.multimodal_encoder import test_multimodal_encoder
     test_multimodal_encoder()

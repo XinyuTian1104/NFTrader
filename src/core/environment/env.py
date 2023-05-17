@@ -70,6 +70,12 @@ class Environment(gym.Env):
             # print('sell')
             # sell, the fraction of total nft to sell
             sell_nft = np.floor(self.nft_wallet * action[1])
+
+            print("sell nft:", sell_nft)
+            print("current price:", self.current_price_usd)
+            
+            
+
             sell_cash = sell_nft * self.current_price_usd
             self.usd_wallet += sell_cash
             self.nft_wallet -= sell_nft
@@ -123,7 +129,7 @@ class Environment(gym.Env):
             if self.current_collection_id >= len(self.data_loader):
                 self.current_collection_id = 0
 
-        self.current_price_usd = ts[1]
+        self.current_price_usd = ts[0, -1, 1].item()
 
         # print('current price:', self.current_price_usd)
 
@@ -152,7 +158,7 @@ class Environment(gym.Env):
         self.current_collection_id = 0
         self.current_price_usd = np.inf
 
-        observation = self._get_obs()
+        observation, _ = self._get_obs()
         info = self._get_info()
 
         return observation, info

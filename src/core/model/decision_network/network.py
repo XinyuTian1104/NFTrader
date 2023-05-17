@@ -7,7 +7,7 @@ from core.model.encoders.multimodal_encoder import MultimodalEncoder
 
 
 class DecisionNetwork(nn.Module):
-    def __init__(self, encode_feature_dim, ts_dim, n_classes=3):
+    def __init__(self, ts_dim, n_classes=3):
         super(DecisionNetwork, self).__init__()
 
         self.multimodal_encoder = MultimodalEncoder(
@@ -21,8 +21,7 @@ class DecisionNetwork(nn.Module):
         self.transformer_encoder = TransformerEncoder(
             self.transformer_encoder_layer, num_layers=2)
 
-        self.fc1 = nn.Linear(encode_feature_dim +
-                             ts_dim + multimodal_encoder_output_size, 256)
+        self.fc1 = nn.Linear(ts_dim + multimodal_encoder_output_size + 2, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, n_classes)
         # Additional output for transaction percentage
@@ -32,8 +31,15 @@ class DecisionNetwork(nn.Module):
                 ts_features,
                 image_features,
                 text_features,
-                encode_features,
-                ts_data):
+                ts_data,
+                usd_wallet,
+                nft_wallet):
+
+        # usd_wallet is a integer, convert to shape (1, 1)
+        usd_wallet = torch.tensor(
+            [usd_wallet], dtype=torch.float32).unsqueeze(0)
+        nft_wallet = torch.tensor(
+            [nft_wallet], dtype=torch.float32).unsqueeze(0)
 
         # multimodal encoder
         multimodal_encoder_output = self.multimodal_encoder(
@@ -47,7 +53,11 @@ class DecisionNetwork(nn.Module):
 
         # Concatenate the three inputs
         combined_features = torch.cat(
-            (encode_features, last_ts_output, multimodal_encoder_output), dim=1)
+            (last_ts_output,
+             multimodal_encoder_output,
+             usd_wallet,
+             nft_wallet),
+            dim=1)
 
         # Pass through the fully connected layers
         x = F.relu(self.fc1(combined_features))
@@ -62,9 +72,11 @@ class DecisionNetwork(nn.Module):
 def test_decision_network():
     # Sample data
     batch_size = 1
-    encode_feature_dim = 2048 * 3
     ts_dim = 5
     ts_timestep = 8
+
+    usd_wallet = 100
+    nft_wallet = 0
 
     # (batch_size, channels, height, width)
     image_sample = torch.randn(1, 3, 224, 224)
@@ -75,16 +87,15 @@ def test_decision_network():
     # (batch_size, timesteps, num_features)
     ts_sample = torch.randn(1, 16, 5)
 
-    encode_features = torch.randn(batch_size, encode_feature_dim)
     ts_data = torch.randn(batch_size, ts_timestep, ts_dim)
 
-    decision_network = DecisionNetwork(
-        encode_feature_dim, ts_dim)
+    decision_network = DecisionNetwork(ts_dim)
 
     # Process sample data
     output_actions, output_percentage = decision_network(
         ts_sample, image_sample, text_sample,
-        encode_features, ts_data)
+        ts_data,
+        usd_wallet, nft_wallet)
 
     # Get the most likely action
     predicted_actions = torch.argmax(output_actions, dim=1)
