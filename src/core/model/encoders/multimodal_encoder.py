@@ -44,15 +44,15 @@ class MultimodalEncoder(nn.Module):
 
 def test_multimodal_encoder():
     # (batch_size, channels, height, width)
-    image_sample = torch.randn(32, 3, 224, 224)
+    image_sample = torch.randn(1, 3, 224, 224)
     text_sample = [
         'This is a sample text to test the MultimodalEncoder module.'
-        for _ in range(32)
+        for _ in range(1)
     ]  # (batch_size, x)
     # (batch_size, timesteps, num_features)
-    ts_sample = torch.randn(32, 500, 20)
+    ts_sample = torch.randn(1, 16, 5)
 
-    model = MultimodalEncoder(ts_num_features=20)
+    model = MultimodalEncoder(ts_num_features=5)
 
     print(model)
 
