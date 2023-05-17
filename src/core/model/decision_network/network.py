@@ -9,7 +9,7 @@ class DecisionNetwork(nn.Module):
         super(DecisionNetwork, self).__init__()
 
         self.transformer_encoder_layer = TransformerEncoderLayer(
-            d_model=ts_dim, nhead=4)
+            d_model=ts_dim, nhead=5)
         self.transformer_encoder = TransformerEncoder(
             self.transformer_encoder_layer, num_layers=2)
 
@@ -43,11 +43,11 @@ class DecisionNetwork(nn.Module):
 
 def test_decision_network():
     # Sample data
-    batch_size = 32
+    batch_size = 1
     encode_feature_dim = 2048 * 3
-    ts_timestep = 64
-    ts_dim = 8
-    manual_feature_dim = 16
+    ts_timestep = 8
+    ts_dim = 5
+    manual_feature_dim = 1
 
     encode_features = torch.randn(batch_size, encode_feature_dim)
     ts_data = torch.randn(batch_size, ts_timestep, ts_dim)
