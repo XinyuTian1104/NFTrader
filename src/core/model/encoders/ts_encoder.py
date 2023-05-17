@@ -27,7 +27,9 @@ class TimeSeriesEncoder(nn.Module):
         self.projection_layer = nn.Linear(num_hidden, output_size)
 
     def forward(self, x):
+        print("size:", x.size())
         batch_size, timesteps, _ = x.size()
+        
 
         x = self.feature_embedding(x)
         pos_enc = self.position_encoding.repeat(1, timesteps, 1)

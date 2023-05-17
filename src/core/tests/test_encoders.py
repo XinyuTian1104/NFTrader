@@ -1,42 +1,37 @@
-from core.model.encoders.multimodal_encoder import test_multimodal_encoder
-import pytest
-import importlib.util
 import os
-import shutil
-from pathlib import Path
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '../..')))
 
 
-def import_encoder(name):
-    path = '/Users/crinstaniev/Courses/STATS402/model/encoders/' + name + '_encoder.py'
-    # Create a module specification object
-    spec = importlib.util.spec_from_file_location(f'{name}_encoder', path)
-    # Load the module
-    encoder = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(encoder)
-    return encoder
-
-
-@pytest.mark.skip(reason="tested manually")
+@pytest.mark.skip()
 def test_image_encoder():
-    test_vit = import_encoder('image').test_vit
+    from core.model.encoders.image_encoder import test_vit
     test_vit()
     return
 
 
-@pytest.mark.skip(reason="tested manually")
+@pytest.mark.skip()
 def test_text_encoder():
-    test_bert = import_encoder('text').test_bert
+    from core.model.encoders.text_encoder import test_bert
     test_bert()
     return
 
 
-@pytest.mark.skip(reason="tested manually")
+@pytest.mark.skip()
 def test_ts_encoder():
-    tester = import_encoder('ts').test_ts_encoder
-    tester()
+    from core.model.encoders.ts_encoder import test_ts_encoder
+    test_ts_encoder()
     return
 
 
-def _test_multimodal_encoder():
+# @pytest.mark.skip()
+def test_multimodal_encoder():
+    from core.model.encoders.multimodal_encoder import test_multimodal_encoder
     test_multimodal_encoder()
     return

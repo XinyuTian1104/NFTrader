@@ -35,7 +35,10 @@ def test_bert():
     # print(model)
 
     # Define random text
-    text = "This is a sample text to test the BertEncoder module."
+    text = ["This is a sample text to test the BertEncoder module.",
+            "This is a sample text to test the BertEncoder module."]
+    
+    # text = "This is a sample text to test the BertEncoder module."
 
     # Encode text into feature vector with length 2048
     feature_vector = model(text)

@@ -1,19 +1,24 @@
 import torch
 import torch.nn as nn
+
 from core.model.encoders.image_encoder import ViTEncoder
 from core.model.encoders.text_encoder import BertEncoder
 from core.model.encoders.ts_encoder import TimeSeriesEncoder
 
+
 class MultimodalEncoder(nn.Module):
-    def __init__(self, ts_num_features, img_d_model=512, img_nhead=8, img_num_layers=6, img_dim_feedforward=2048, img_output_size=2048, text_hidden_size=768, text_output_size=2048, ts_num_hidden=256, ts_num_layers=6, ts_num_heads=8, ts_output_size=2048):
+    def __init__(self, ts_num_features, img_image_size=224, img_patch_size=16, img_emb_size=256, img_num_heads=8, img_num_layers=12, img_feature_dim=2048, img_dropout=0.1, img_channel=3, text_hidden_size=768, text_output_size=2048, ts_num_hidden=256, ts_num_layers=6, ts_num_heads=8, ts_output_size=2048):
         super(MultimodalEncoder, self).__init__()
 
         self.image_encoder = ViTEncoder(
-            d_model=img_d_model,
-            nhead=img_nhead,
+            image_size=img_image_size,
+            patch_size=img_patch_size,
+            emb_size=img_emb_size,
+            num_heads=img_num_heads,
             num_layers=img_num_layers,
-            dim_feedforward=img_dim_feedforward,
-            output_size=img_output_size
+            feature_dim=img_feature_dim,
+            dropout=img_dropout,
+            channel=img_channel
         )
         self.text_encoder = BertEncoder(
             hidden_size=text_hidden_size,
@@ -38,10 +43,14 @@ class MultimodalEncoder(nn.Module):
 
 
 def test_multimodal_encoder():
-    # image shape: (batch_size, 3, 256, 256)
-    image_sample = torch.randn(32, 3, 256, 256)
-    text_sample = 'This is a sample text to test the MultimodalEncoder module.'
-    ts_sample = torch.randn(32, 32, 500, 20)
+    # (batch_size, channels, height, width)
+    image_sample = torch.randn(32, 3, 224, 224)
+    text_sample = [
+        'This is a sample text to test the MultimodalEncoder module.'
+        for _ in range(32)
+    ]  # (batch_size, x)
+    # (batch_size, timesteps, num_features)
+    ts_sample = torch.randn(32, 500, 20)
 
     model = MultimodalEncoder(ts_num_features=20)
 

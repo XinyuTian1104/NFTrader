@@ -1,106 +1,63 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models
-import torchvision.transforms as transforms
-from PIL import Image
-from torchvision import transforms
-
-
-class ImageTransformerEncoder(nn.Module):
-    def __init__(self, output_size, num_layers, num_heads, d_ff, dropout):
-        super(ImageTransformerEncoder, self).__init__()
-
-        # Pre-trained image feature extraction model (ResNet-50)
-        resnet = models.resnet50(pretrained=True)
-        self.feature_extractor = nn.Sequential(*list(resnet.children())[:-2])
-
-        # Transformer encoder layers
-        self.transformer_layers = nn.ModuleList([
-            nn.TransformerEncoderLayer(
-                d_model=output_size, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout)
-            for _ in range(num_layers)
-        ])
-
-        # Max pool for fixed-length feature vector
-        self.max_pool = nn.AdaptiveMaxPool2d((1, output_size))
-
-    def forward(self, x):
-        # Extract image features
-        features = self.feature_extractor(x)
-        batch_size, _, H, W = features.size()
-
-        # Flatten and permute dimensions
-        features = features.view(batch_size, -1, H * W).permute(2, 0, 1)
-
-        # Apply transformer layers
-        for layer in self.transformer_layers:
-            features = layer(features)
-
-        # Create fixed-length feature vector
-        features = features.permute(1, 2, 0)
-        feature_vector = self.max_pool(features).squeeze(2)
-
-        return feature_vector
 
 
 class ViTEncoder(nn.Module):
-    def __init__(self, d_model, nhead, num_layers, dim_feedforward, patch_size, output_size=2048):
+    def __init__(self, image_size, patch_size, emb_size, num_heads, num_layers, feature_dim, dropout, channel):
         super(ViTEncoder, self).__init__()
 
-        self.patch_size = patch_size
-        self.d_model = d_model
+        assert image_size % patch_size == 0, "Image size must be divisible by patch size"
+        num_patches = (image_size // patch_size) ** 2
+        patch_dim = channel * patch_size ** 2
 
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model, nhead, dim_feedforward)
+        self.patch_embedding = nn.Conv2d(
+            channel, emb_size, kernel_size=patch_size, stride=patch_size)
+        self.positional_embedding = nn.Parameter(
+            torch.randn(1, num_patches + 1, emb_size))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, emb_size))
         self.transformer_encoder = nn.TransformerEncoder(
-            self.encoder_layer, num_layers)
+            nn.TransformerEncoderLayer(
+                emb_size, num_heads, dim_feedforward=4 * emb_size, dropout=dropout), num_layers
+        )
+        self.fc = nn.Linear(emb_size, feature_dim)
 
-        self.position_encoding = nn.Parameter(
-            torch.randn(1, (patch_size * patch_size) + 1, d_model))
-
-        self.max_pool = nn.AdaptiveMaxPool2d((1, output_size))
+        self.dropout = nn.Dropout(dropout)
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+        self.emb_size = emb_size
 
     def forward(self, x):
-        # Flatten and add position encoding
-        x = x.view(x.shape[0], self.d_model, -1).permute(2, 0, 1)
-        x = x + self.position_encoding[:, :x.size(0), :].detach()
-
-        # Pass through the transformer encoder
+        x = self.patch_embedding(x)
+        x = x.flatten(2).transpose(1, 2)
+        cls_tokens = self.cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.positional_embedding[:, :(self.num_patches + 1)]
+        x = self.dropout(x)
         x = self.transformer_encoder(x)
-
-        # Get the [CLS] token (first token)
-        x = x[0]
-
-        # map to feature dimension
-        x = self.max_pool(x.unsqueeze(0)).squeeze(0)
-
+        x = x.mean(dim=1)
+        x = self.fc(x)
         return x
 
 
 def test_vit():
-    # Parameters
-    image_path = '/Users/crinstaniev/Courses/STATS402/data/raw/0n1-force/image.png'
-    d_model = 512
-    nhead = 8
-    num_layers = 6
-    dim_feedforward = 2048
+    image_size = 224
     patch_size = 16
+    emb_size = 256
+    num_heads = 8
+    num_layers = 12
+    feature_dim = 2048
+    dropout = 0.1
+    channel = 3
 
-    # Load and preprocess image
-    image = Image.open(image_path)
-    transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-    ])
-    image_tensor = transform(image).unsqueeze(0)
+    model = ViTEncoder(image_size, patch_size, emb_size,
+                       num_heads, num_layers, feature_dim, dropout, channel)
 
-    print("Image Sample Size:" + str(image_tensor.shape))
+    batch_size = 32
+    input_images = torch.randn(batch_size, channel, image_size, image_size)
 
-    # Instantiate the model
-    model = ViTEncoder(d_model, nhead, num_layers, dim_feedforward, patch_size)
-    print(model)
+    print("input shape: ", input_images.shape)
 
-    with torch.no_grad():
-        result = model(image_tensor)
+    output = model(input_images)
 
-    print(result.size())
+    print("output shape: ", output.shape)
