@@ -20,10 +20,10 @@ class MultimodalEncoder(nn.Module):
             dropout=img_dropout,
             channel=img_channel
         )
-        self.text_encoder = BertEncoder(
-            hidden_size=text_hidden_size,
-            output_size=text_output_size
-        )
+        # self.text_encoder = BertEncoder(
+        #     hidden_size=text_hidden_size,
+        #     output_size=text_output_size
+        # )
         self.ts_encoder = TimeSeriesEncoder(
             num_features=ts_num_features,
             num_hidden=ts_num_hidden,
@@ -32,12 +32,12 @@ class MultimodalEncoder(nn.Module):
             output_size=ts_output_size
         )
 
-    def forward(self, time_series, image, text):
+    def forward(self, time_series, image):
         time_series = self.ts_encoder(time_series)
         image = self.image_encoder(image)
-        text = self.text_encoder(text)
+        # text = self.text_encoder(text)
 
-        combined = torch.cat([time_series, image, text], dim=1)
+        combined = torch.cat([time_series, image], dim=1)
 
         return combined
 
@@ -45,10 +45,10 @@ class MultimodalEncoder(nn.Module):
 def test_multimodal_encoder():
     # (batch_size, channels, height, width)
     image_sample = torch.randn(1, 3, 224, 224)
-    text_sample = [
-        'This is a sample text to test the MultimodalEncoder module.'
-        for _ in range(1)
-    ]  # (batch_size, x)
+    # text_sample = [
+    #     'This is a sample text to test the MultimodalEncoder module.'
+    #     for _ in range(1)
+    # ]  # (batch_size, x)
     # (batch_size, timesteps, num_features)
     ts_sample = torch.randn(1, 16, 5)
 
@@ -56,6 +56,6 @@ def test_multimodal_encoder():
 
     print(model)
 
-    output = model(ts_sample, image_sample, text_sample)
+    output = model(ts_sample, image_sample)
     print("MultimodalEncoder output shape:", str(output.shape))
     return

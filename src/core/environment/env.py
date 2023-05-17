@@ -8,6 +8,9 @@ from gymnasium.utils import seeding
 from core.environment.data_loader import DataLoader
 
 
+VECTOR_LENGTH = 16 * 5 + 3 * 224 * 224 + 16 * 5 + 1 + 1
+
+
 class Environment(gym.Env):
     def __init__(self, initial_usd=1024*1000, train=False) -> None:
 
@@ -29,14 +32,18 @@ class Environment(gym.Env):
         #   - 'description': description of the collection, with shape (1, text)
         #   - 'ts_feature': time serise (1-16 rows) of the collection, with shape (1, 16, 5)
         #   - 'ts': time series, at the current timestep of the collection, with shape (5, )
-        self.observation_space = gym.spaces.Dict({
-            'image': gym.spaces.Box(low=0, high=255, shape=(1, 3, 224, 224), dtype=np.float32),
-            'description': gym.spaces.Text(max_length=1024 * 1024),
-            'ts_feature': gym.spaces.Box(low=0, high=255, shape=(1, 16, 5), dtype=np.float32),
-            'ts': gym.spaces.Box(low=0, high=255, shape=(5, ), dtype=np.float32),
-            'nft_wallet': gym.spaces.Box(low=0, high=np.inf, shape=(1, ), dtype=np.float32),
-            'usd_wallet': gym.spaces.Box(low=0, high=np.inf, shape=(1, ), dtype=np.float32),
-        })
+        # self.observation_space = gym.spaces.Dict({
+        #     'image': gym.spaces.Box(low=0, high=255, shape=(1, 3, 224, 224), dtype=np.float32),
+        #     'description': gym.spaces.Text(max_length=1024 * 1024),
+        #     'ts_feature': gym.spaces.Box(low=0, high=255, shape=(1, 16, 5), dtype=np.float32),
+        #     'ts': gym.spaces.Box(low=0, high=255, shape=(5, ), dtype=np.float32),
+        #     'nft_wallet': gym.spaces.Box(low=0, high=np.inf, shape=(1, ), dtype=np.float32),
+        #     'usd_wallet': gym.spaces.Box(low=0, high=np.inf, shape=(1, ), dtype=np.float32),
+        # })
+
+        self.observation_space = gym.spaces.Box(
+            low=0, high=np.inf, shape=(VECTOR_LENGTH, ), dtype=np.float32
+        )
 
         # define action space
         # each action is a tuple of (action, percentage), where
@@ -45,10 +52,11 @@ class Environment(gym.Env):
         #    1 - sell
         #    2 - hold
         #  - percentage is a float between 0 and 1
-        self.action_space = gym.spaces.Tuple((
-            gym.spaces.Discrete(3),
-            gym.spaces.Box(low=0, high=1, shape=(1, ), dtype=np.float32),
-        ))
+        # self.action_space = gym.spaces.Tuple((
+        #     gym.spaces.Discrete(3),
+        #     gym.spaces.Box(low=0, high=1, shape=(1, ), dtype=np.float32),
+        # ))
+        self.action_space = gym.spaces.Discrete(3)
 
     def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         # alter the state of the environment
@@ -56,32 +64,21 @@ class Environment(gym.Env):
         #    0 - buy
         #    1 - sell
         #    2 - hold
-        if action[0] == 0:
-            # print('buy')
-            # buy, the fraction of total cash to buy
-            buy_cash = self.usd_wallet * action[1]
-            nft_amount = np.floor(buy_cash / self.current_price_usd)
-            buy_cash = nft_amount * self.current_price_usd
-            # print('buy nft amount:', nft_amount)
-            self.usd_wallet -= buy_cash
-            self.nft_wallet += nft_amount
+        if action == 0:
+            # buy nft, one each time, if there is enough cash
+            if self.usd_wallet >= self.current_price_usd:
+                self.usd_wallet -= self.current_price_usd
+                self.nft_wallet += 1
+            # print('buy nft amount:', 1)
 
-        if action[0] == 1:
-            # print('sell')
-            # sell, the fraction of total nft to sell
-            sell_nft = np.floor(self.nft_wallet * action[1])
+        if action == 1:
+            # sell all nft, if there is any
+            if self.nft_wallet > 0:
+                self.usd_wallet += self.current_price_usd * self.nft_wallet
+                self.nft_wallet = 0
+            # print('sell nft amount:', self.nft_wallet)
 
-            print("sell nft:", sell_nft)
-            print("current price:", self.current_price_usd)
-            
-            
-
-            sell_cash = sell_nft * self.current_price_usd
-            self.usd_wallet += sell_cash
-            self.nft_wallet -= sell_nft
-            # print('sell nft amount:', sell_nft)
-
-        if action[0] == 2:
+        if action == 2:
             # print('hold')
             # hold, do nothing
             pass
@@ -103,6 +100,7 @@ class Environment(gym.Env):
             'usd_wallet': self.usd_wallet,
             'nft_wallet': self.nft_wallet,
             'current_price_usd': self.current_price_usd,
+            'current_collection_id': self.current_collection_id,
         }
 
         return payload
@@ -131,16 +129,22 @@ class Environment(gym.Env):
 
         self.current_price_usd = ts[0, -1, 1].item()
 
-        # print('current price:', self.current_price_usd)
+        # construct single-vector observation
+        # shape of x: (1, VECTOR_LENGTH)
+        # structure of x:
+        #  - ts_feature: (batch_size, 16, 5)
+        #  - image_feature: (batch_size, 3, 224, 224)
+        #  - ts_data: (batch_size, 16, 5)
+        #  - usd_wallet: (batch_size, 1)
+        #  - nft_wallet: (batch_size, 1)
+        ts_feature = ts_feature.reshape(-1)
+        image = image.reshape(-1)
+        ts = ts.reshape(-1)
+        usd_wallet = np.array([self.usd_wallet]).reshape(-1)
+        nft_wallet = np.array([self.nft_wallet]).reshape(-1)
 
-        observation = {
-            'image': image,
-            'description': text,
-            'ts_feature': ts_feature,
-            'ts': ts,
-            'nft_wallet': self.nft_wallet,
-            'usd_wallet': self.usd_wallet,
-        }
+        observation = np.concatenate(
+            (ts_feature, image, ts, usd_wallet, nft_wallet), axis=0).astype(np.float32)
 
         return observation, done
 
