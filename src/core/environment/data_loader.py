@@ -25,18 +25,37 @@ class DataLoader(object):
         self.time_series_buffer = None
         self.feature_buffer = None
         self.current_collection_id = None
-        self.current_timestep = None
+        
+        self.current_timestep = FEATURE_TS_LEN
         
         # remove .DS_Store
         if '.DS_Store' in self.collection_names:
             self.collection_names.remove('.DS_Store')
             self.num_collections -= 1
-        
-        print(self.num_collections)
-        print(self.collection_names)
+            
+    def _get_timeseries_length(self):
+        return len(self.time_series_buffer)
+            
+    def bump_timestep(self):
+        self.current_timestep += 1
+        if self.current_timestep == self._get_timeseries_length():
+            self.current_timestep = FEATURE_TS_LEN
+            self.current_collection_id += 1
+            return True
+        return False
         
     def load_collection_features(self, collection_id):
         self._flush(collection_id)
+        
+        if self.time_series_buffer is None:    
+            collection_name = self._collection_id_to_name(collection_id)
+            collection_path = os.path.join(self.data_path, collection_name)  
+            
+            # load time_series.json with pandas
+            time_series_path = os.path.join(collection_path, 'time_series.json')
+            time_series = pd.read_json(time_series_path)
+            
+            self.time_series_buffer = time_series
         
         if self.feature_buffer is None:
             collection_name = self._collection_id_to_name(collection_id)
@@ -45,7 +64,7 @@ class DataLoader(object):
             # load description.txt
             description_path = os.path.join(collection_path, 'description.txt')
             with open(description_path, 'r') as f:
-                description = [f.read()]
+                description = f.read()
             
             # load image with RGB channels
             image_path = os.path.join(collection_path, 'image.png')
@@ -70,7 +89,7 @@ class DataLoader(object):
         
         return self.feature_buffer
     
-    def load_time_series(self, collection_id, timestep):
+    def load_time_series(self, collection_id, timestep=None):
         self._flush(collection_id)
         
         if self.time_series_buffer is None:    
@@ -82,10 +101,14 @@ class DataLoader(object):
             time_series = pd.read_json(time_series_path)
             
             self.time_series_buffer = time_series
-
-        self.current_timestep = timestep
+            
+        if timestep:
+            payload = self.time_series_buffer.iloc[timestep]
+            payload = payload[['floorEth', 'floorUsd', 'salesCount', 'volumeEth', 'volumeUsd']]
+            payload = payload.to_numpy()
+            return payload
         
-        payload = self.time_series_buffer.iloc[timestep]
+        payload = self.time_series_buffer.iloc[self.current_timestep]
         
         # only keep floorEth, floorUsd, salesCount, volumeEth, volumeUsd
         payload = payload[['floorEth', 'floorUsd', 'salesCount', 'volumeEth', 'volumeUsd']]
@@ -93,7 +116,9 @@ class DataLoader(object):
         # convert to numpy array
         payload = payload.to_numpy()
         
-        return payload
+        done = self.bump_timestep()
+        
+        return payload, done
         
     
     def _collection_id_to_name(self, collection_id):
