@@ -3,10 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
+from core.model.encoders.multimodal_encoder import MultimodalEncoder
+
 
 class DecisionNetwork(nn.Module):
     def __init__(self, encode_feature_dim, ts_dim, n_classes=3):
         super(DecisionNetwork, self).__init__()
+
+        self.multimodal_encoder = MultimodalEncoder(
+            ts_num_features=5,
+        )
+
+        multimodal_encoder_output_size = 2048 + 2048 + 2048
 
         self.transformer_encoder_layer = TransformerEncoderLayer(
             d_model=ts_dim, nhead=5)
@@ -14,13 +22,23 @@ class DecisionNetwork(nn.Module):
             self.transformer_encoder_layer, num_layers=2)
 
         self.fc1 = nn.Linear(encode_feature_dim +
-                             ts_dim, 256)
+                             ts_dim + multimodal_encoder_output_size, 256)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, n_classes)
         # Additional output for transaction percentage
         self.fc4 = nn.Linear(128, 1)
 
-    def forward(self, encode_features, ts_data):
+    def forward(self,
+                ts_features,
+                image_features,
+                text_features,
+                encode_features,
+                ts_data):
+
+        # multimodal encoder
+        multimodal_encoder_output = self.multimodal_encoder(
+            ts_features, image_features, text_features)
+
         # Apply the transformer encoder to time series data
         transformer_output = self.transformer_encoder(ts_data)
 
@@ -29,7 +47,7 @@ class DecisionNetwork(nn.Module):
 
         # Concatenate the three inputs
         combined_features = torch.cat(
-            (encode_features, last_ts_output), dim=1)
+            (encode_features, last_ts_output, multimodal_encoder_output), dim=1)
 
         # Pass through the fully connected layers
         x = F.relu(self.fc1(combined_features))
@@ -48,6 +66,15 @@ def test_decision_network():
     ts_dim = 5
     ts_timestep = 8
 
+    # (batch_size, channels, height, width)
+    image_sample = torch.randn(1, 3, 224, 224)
+    text_sample = [
+        'This is a sample text to test the MultimodalEncoder module.'
+        for _ in range(1)
+    ]  # (batch_size, x)
+    # (batch_size, timesteps, num_features)
+    ts_sample = torch.randn(1, 16, 5)
+
     encode_features = torch.randn(batch_size, encode_feature_dim)
     ts_data = torch.randn(batch_size, ts_timestep, ts_dim)
 
@@ -56,6 +83,7 @@ def test_decision_network():
 
     # Process sample data
     output_actions, output_percentage = decision_network(
+        ts_sample, image_sample, text_sample,
         encode_features, ts_data)
 
     # Get the most likely action
