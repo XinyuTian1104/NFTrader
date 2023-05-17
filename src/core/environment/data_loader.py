@@ -47,16 +47,6 @@ class DataLoader(object):
     def load_collection_features(self, collection_id):
         self._flush(collection_id)
         
-        if self.time_series_buffer is None:    
-            collection_name = self._collection_id_to_name(collection_id)
-            collection_path = os.path.join(self.data_path, collection_name)  
-            
-            # load time_series.json with pandas
-            time_series_path = os.path.join(collection_path, 'time_series.json')
-            time_series = pd.read_json(time_series_path)
-            
-            self.time_series_buffer = time_series
-        
         if self.feature_buffer is None:
             collection_name = self._collection_id_to_name(collection_id)
             collection_path = os.path.join(self.data_path, collection_name)
@@ -78,9 +68,11 @@ class DataLoader(object):
             image = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).type(torch.float32)
             
             # load time_series.json with pandas
-            ts_payload = np.zeros((1, FEATURE_TS_LEN, 5))
+            ts_payload = np.zeros((1, FEATURE_TS_LEN, 5), dtype=np.float32)
             for i in range(FEATURE_TS_LEN):
-                ts_payload[0, i, :] = self.load_time_series(collection_id, i)
+                payload = self.load_time_series(collection_id, i)
+                for j in range(5):
+                    ts_payload[0, i, j] = payload[j]
                 
             # convert to tensor with shape (1, timesteps, num_features)
             time_series = torch.from_numpy(ts_payload).type(torch.float32)
@@ -91,18 +83,8 @@ class DataLoader(object):
     
     def load_time_series(self, collection_id, timestep=None):
         self._flush(collection_id)
-        
-        if self.time_series_buffer is None:    
-            collection_name = self._collection_id_to_name(collection_id)
-            collection_path = os.path.join(self.data_path, collection_name)  
             
-            # load time_series.json with pandas
-            time_series_path = os.path.join(collection_path, 'time_series.json')
-            time_series = pd.read_json(time_series_path)
-            
-            self.time_series_buffer = time_series
-            
-        if timestep:
+        if timestep is not None:
             payload = self.time_series_buffer.iloc[timestep]
             payload = payload[['floorEth', 'floorUsd', 'salesCount', 'volumeEth', 'volumeUsd']]
             payload = payload.to_numpy()
@@ -126,11 +108,24 @@ class DataLoader(object):
     
     def _flush(self, collection_id):
         if self.current_collection_id is None \
-            or collection_id != self.current_collection_id:
+            or collection_id != self.current_collection_id \
+                or self.current_timestep == FEATURE_TS_LEN:
             self.time_series_buffer = None
             self.feature_buffer = None
             self.current_collection_id = collection_id
+            
+        collection_name = self._collection_id_to_name(collection_id)
+        collection_path = os.path.join(self.data_path, collection_name)  
+            
+        # load time_series.json with pandas
+        time_series_path = os.path.join(collection_path, 'time_series.json')
+        time_series = pd.read_json(time_series_path)
+            
+        self.time_series_buffer = time_series
         return
+    
+    def __len__(self):
+        return self.num_collections
             
         
             
