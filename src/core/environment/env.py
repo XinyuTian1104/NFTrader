@@ -116,7 +116,7 @@ class Environment(gym.Env):
 
         done = False
 
-        print('collection id:', self.current_collection_id)
+        # print('collection id:', self.current_collection_id)
 
         if collection_end:
             done = True

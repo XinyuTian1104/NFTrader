@@ -8,7 +8,7 @@ class ViTEncoder(nn.Module):
 
         assert image_size % patch_size == 0, "Image size must be divisible by patch size"
         num_patches = (image_size // patch_size) ** 2
-        patch_dim = channel * patch_size ** 2
+        # patch_dim = channel * patch_size ** 2
 
         self.patch_embedding = nn.Conv2d(
             channel, emb_size, kernel_size=patch_size, stride=patch_size)
@@ -47,6 +47,7 @@ def test_vit():
     num_heads = 8
     num_layers = 12
     feature_dim = 2048
+    # feature_dim = 128
     dropout = 0.1
     channel = 3
 
