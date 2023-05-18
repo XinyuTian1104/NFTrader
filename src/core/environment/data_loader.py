@@ -123,6 +123,7 @@ class DataLoader(object):
             self.reload_flag = True
         
         if self.reload_flag: 
+            self.current_collection_id = collection_id
             collection_name = self._collection_id_to_name(collection_id)
             collection_path = os.path.join(self.data_path, collection_name)  
                 

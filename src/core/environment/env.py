@@ -12,7 +12,7 @@ VECTOR_LENGTH = 16 * 5 + 3 * 224 * 224 + 16 * 5 + 1 + 1
 
 
 class Environment(gym.Env):
-    def __init__(self, initial_usd=1024*1000, train=False) -> None:
+    def __init__(self, initial_usd=1024*1000, train=True) -> None:
 
         # environment variables
         self.usd_wallet = initial_usd  # initial number of cash
@@ -23,6 +23,7 @@ class Environment(gym.Env):
         self.data_loader = DataLoader(train=train)
         self.current_collection_id = 0
         self.current_price_usd = np.inf
+        self.counter = 0
 
         self.is_train = train
 
@@ -88,19 +89,31 @@ class Environment(gym.Env):
         truncated = False
         reward = self._get_reward(terminated=terminated)
 
+        self.counter += 1
+
+        self.current_collection_id = self.data_loader.current_collection_id
+
+        if self.counter >= 64:
+            terminated = True
+
         return observation, reward, terminated, truncated, info
 
     def _get_reward(self, terminated):
-        if terminated:
-            return self.usd_wallet + self.nft_wallet * self.current_price_usd - self.initial_usd
-        return 0
+        # reward if the agent is able to make profit for long term
+        current_value = self.usd_wallet + self.nft_wallet * self.current_price_usd
+        initial_value = self.initial_usd
+
+        diff = np.float32((current_value - initial_value) / 8)
+
+        return diff
 
     def _get_info(self):
+
         payload = {
             'usd_wallet': self.usd_wallet,
             'nft_wallet': self.nft_wallet,
             'current_price_usd': self.current_price_usd,
-            'current_collection_id': self.current_collection_id,
+            'current_collection_id': self.data_loader.current_collection_id,
         }
 
         return payload
@@ -156,11 +169,20 @@ class Environment(gym.Env):
         # environment variables
         self.usd_wallet = self.initial_usd  # initial number of cash
         self.nft_wallet = 0  # initial number of nft
+        self.counter = 0
+        self.current_collection_id += 1
+        if self.current_collection_id >= len(self.data_loader):
+            self.current_collection_id = 0
+
+        self.data_loader.current_collection_id = self.current_collection_id
+        self.data_loader.current_timestep = 0
+        self.data_loader.reload_flag = True
+        self.data_loader._flush(self.current_collection_id)
 
         # initialize data loader
-        self.data_loader = DataLoader(train=self.is_train)
-        self.current_collection_id = 0
-        self.current_price_usd = np.inf
+        # self.data_loader = DataLoader(train=self.is_train)
+        # self.current_collection_id = 0
+        # self.current_price_usd = np.inf
 
         observation, _ = self._get_obs()
         info = self._get_info()

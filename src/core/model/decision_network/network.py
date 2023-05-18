@@ -16,7 +16,7 @@ class DecisionNetwork(nn.Module):
             ts_num_features=5,
         )
 
-        multimodal_encoder_output_size = 128 * 2
+        multimodal_encoder_output_size = 64 * 2
 
         self.transformer_encoder_layer = TransformerEncoderLayer(
             d_model=ts_dim, nhead=5)

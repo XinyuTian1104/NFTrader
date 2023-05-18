@@ -7,7 +7,7 @@ from core.model.encoders.ts_encoder import TimeSeriesEncoder
 
 
 class MultimodalEncoder(nn.Module):
-    def __init__(self, ts_num_features, img_image_size=224, img_patch_size=16, img_emb_size=256, img_num_heads=8, img_num_layers=12, img_feature_dim=128, img_dropout=0.1, img_channel=3, text_hidden_size=768, text_output_size=128, ts_num_hidden=256, ts_num_layers=6, ts_num_heads=8, ts_output_size=128):
+    def __init__(self, ts_num_features, img_image_size=224, img_patch_size=16, img_emb_size=256, img_num_heads=8, img_num_layers=12, img_feature_dim=64, img_dropout=0.1, img_channel=3, text_hidden_size=768, text_output_size=128, ts_num_hidden=256, ts_num_layers=6, ts_num_heads=8, ts_output_size=64):
         super(MultimodalEncoder, self).__init__()
 
         self.image_encoder = ViTEncoder(
