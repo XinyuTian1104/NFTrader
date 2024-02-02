@@ -1,4 +1,4 @@
-# STATS402 - NFTrader: A Python Package for Trading NFTs with Neural Networks
+# NFTrader: A Python Package for Trading NFTs with Neural Networks
 
 ## Environment Setup
 
